@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<meta charset="utf-8">
+	<title>IndexedDB</title>
+</head>
+<body>
+	<script type="text/javascript">
+		if (!window.indexedDB) {
+			window.indexedDB = window.webkitIndexedDB || window.mozIndexedDB || window.msIndexedDB;
+		}
+		if (!window.indexedDB) {
+			console.log();
+		}
+
+		var conf = {
+			DB_Name: 'index', //数据库名
+			DB_Version: 1, //数据库名
+			DB_Store_Name: 'user', //对象仓库名
+		};
+		const MODE_READONLY = 'readonly'; //读写模式 - 只读
+		const MODE_READWRITE = 'readwrite'; //读写模式 - 读写
+
+		var data = {
+			isSuport: true, //是否支持indexedDB的标记
+			db: null, //数据库对象
+		};
+		var user = {
+			username: 'oneminuter',
+			age: 24,
+			brithday: '1994-01-01',
+			sex: 1,
+			work: 'Full Stack Developer',
+		};
+
+		var DB = {
+			init: function() {
+				DB.openDB();
+			},
+			
+			/*
+				storeName: string 仓库对象名
+				indexs: index 对象数据 {index, isUnique} 
+				baseData: 基础数据对象数组
+			*/
+			updateDB: function(storeName = conf.DB_Store_Name, version = conf.DB_Version, indexs = [], baseData = []) {
+				console.log(storeName, version)
+				var req = indexedDB.open(conf.DB_Name, version);
+				req.onupgradeneeded = function(evt) {
+					try {
+						var store = evt.currentTarget.result.createObjectStore(storeName, {keyPath: 'id', autoIncrement: true});
+						console.log(store);
+						indexs.forEach(function(val) {
+							if (val['index'] && val['isUnique']) {
+								store.createIndex(val['index'], val['index'], {unique: val['isUnique']});
+							}
+						});
+
+						//如果想在添加基本数据，得在 transaction.oncomplete 事件中添加
+						var db = this.result;
+						store.transaction.oncomplete = function(event) {
+							baseData.forEach(function(val) {
+								db.transaction(storeName, MODE_READWRITE).objectStore(storeName).add(val);
+							});
+						}
+					} catch (e) {
+						console.warn(e);
+					}
+				};
+				req.onsuccess = function(evt) {
+					data.db = this.result;
+					conf.DB_Version = this.result.version;
+				};
+				req.onerror = function(evt) {
+					if (0 === evt.target.error.code) {
+						conf.DB_Version++;
+						return DB.openDB(storeName);
+					}
+					console.log("updateDB.error: ", evt, evt.target.error.message);
+				};
+			},
+
+			//创建仓库对象
+			createStore: function(storeName) {
+				if (!storeName) {
+					console.warn("Lack objectStoreName");
+					return;
+				}
+
+				//判断 store 是否已存在,不存在，则创建
+				console.log(data.db);
+				
+				console.log(conf.DB_Version);
+				//版本号加 1
+				// conf.DB_Version++;
+				// console.log(conf.DB_Version);
+				// return DB.updateDB(storeName, conf.DB_Version, [], [{age:123}]);
+				var store = DB.getWriteStore(conf.DB_Store_Name);
+				var req = store.createObjectStore(storeName, {keyPath: 'id', autoIncrement: true});
+				req.onupgradeneeded = function(evt) {
+					console.log("onupgradeneeded:",evt);
+				}
+				req.onsuccess = function(evt) {
+					console.log("onsuccess:",evt);
+				}
+				req.onerror = function(evt) {
+					console.log("onerror:",evt);
+				}
+
+			},
+
+			//打开indexedDB
+			openDB: function(storeName = conf.DB_Store_Name) {
+				return DB.updateDB(storeName);
+			},
+
+			/*
+				storeName: string 仓库对象名
+				mode: 'readonly' or 'readwrite' //读写模式
+			*/
+			getObjectStore(storeName = conf.DB_Store_Name, mode = MODE_READONLY) {
+				console.log(data.db,storeName);
+				var tx = data.db.transaction(storeName, mode);
+				return tx.objectStore(storeName)
+			},
+
+			//只读仓库对象
+			getReadStore(storeName) {
+				if (!storeName) {
+					console.warn('lack storeName');
+					return;
+				}
+				return DB.getObjectStore();
+			},
+
+			//读写仓库对象
+			getWriteStore(storeName) {
+				if (!storeName) {
+					console.warn('lack storeName');
+					return;
+				}
+				return DB.getObjectStore(conf.DB_Store_Name, MODE_READWRITE);
+			},
+
+			//判断 store 是否存在
+			isStoreExist: function() {
+
+			},
+
+			//添加数据
+			add: function(dataObj = user) {
+				var store = DB.getObjectStore(conf.DB_Store_Name, MODE_READWRITE);
+				var req;
+				try {
+					req = store.add(userObj);
+					console.log(req);
+				} catch (e) {
+					if (e.name == 'DataCloneError') {
+						console.error('This engine does`n know how to clone a Blob');
+						throw e;
+					}
+				}
+				// req.onsuccess = function(evt){
+				// 	console.log('add.onsuccess:', evt);
+				// };
+				// req.onerror = function(evt) {
+				// 	console.error('add.onerror:', evt);
+				// }
+			},
+
+			//更新数据
+			update: function(){
+
+			},
+			
+			//删除数据
+			delete: function(){},
+			
+			//获取所有数据
+			getOne: function(){},
+			
+			//获取数据列表
+			getList: function(){},
+			
+			//清除所有数据
+			clearAll: function(){},
+			
+			//销毁数据库
+			destory: function(){},
+
+		};
+		DB.init();
+	</script>
+</body>
+</html>
